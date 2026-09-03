@@ -33,8 +33,6 @@ Do **not** add `VITE_API_URL`. The browser calls `/api` on the same domain.
 6. Start API: `pnpm --filter @workspace/api-server run start`
 7. Serve the frontend build (`artifacts/mokominote/dist/public`)
 
-On Replit, artifacts already declare their ports and the workspace router sends `/api` to the API server.
-
 ## Required environment
 
 - `DATABASE_URL`

@@ -2,6 +2,7 @@
 
 # compiled output
 dist
+artifacts/mokominote/api-bundle/
 tmp
 out-tsc
 *.tsbuildinfo
