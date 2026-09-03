@@ -16,7 +16,7 @@ if (!process.env.DATABASE_URL) {
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: postgresSsl(process.env.DATABASE_URL),
-  max: 10,
+  max: process.env.VERCEL ? 2 : 10,
 });
 
 export const db = drizzle(pool, { schema });

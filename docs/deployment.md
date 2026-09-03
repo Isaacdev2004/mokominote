@@ -1,5 +1,28 @@
 # Deployment
 
+## Vercel (frontend + API on one project)
+
+Use **one** Vercel project pointed at the GitHub repo. Do not deploy the Express app as a second static/API-only project.
+
+1. Root Directory: leave empty (repository root). If you already set it to `artifacts/mokominote`, that also works.
+2. Framework: Vite
+3. Build Command: `pnpm --filter @workspace/mokominote run build`
+4. Output Directory: `artifacts/mokominote/dist/public`
+5. Add these **server** environment variables on that same project:
+
+| Variable | Required |
+|---|---|
+| `DATABASE_URL` | Yes — Supabase transaction pooler (`:6543`) |
+| `SESSION_SECRET` | Yes — long random string |
+| `NODE_ENV` | Yes — `production` |
+| `APP_URL` | Yes — your Vercel URL, e.g. `https://mokominote-api-server.vercel.app` |
+| `DIRECT_URL` | Optional — only for migrations |
+| `SUPABASE_URL` | Optional |
+
+Do **not** add `VITE_API_URL`. The browser calls `/api` on the same domain.
+
+`/businesses` is a frontend route. Open it on the Vercel site URL, not as a standalone API host path.
+
 ## Fresh environment
 
 1. `pnpm install`
