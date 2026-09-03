@@ -1,22 +1,26 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: MoKominoté local business directory and community API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: auth
+  - name: categories
+  - name: businesses
+  - name: community
+  - name: dashboards
+  - name: notifications
+  - name: admin
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +28,857 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get the current session user
+      responses:
+        "200":
+          description: Current user or null
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a member or business owner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: Registered user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Log in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: End the current session
+      responses:
+        "204":
+          description: Logged out
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [categories]
+      summary: List active business categories
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+  /businesses:
+    get:
+      operationId: listBusinesses
+      tags: [businesses]
+      summary: Search and filter approved businesses
+      parameters:
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/Category"
+        - $ref: "#/components/parameters/District"
+        - $ref: "#/components/parameters/Village"
+        - $ref: "#/components/parameters/Sort"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Paged businesses
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessList"
+    post:
+      operationId: createBusiness
+      tags: [businesses]
+      summary: Create a business owned by the current user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BusinessInput"
+      responses:
+        "201":
+          description: Pending business
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Business"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /businesses/owned:
+    get:
+      operationId: listOwnedBusinesses
+      tags: [businesses]
+      summary: List businesses owned by the current user
+      responses:
+        "200":
+          description: Owned businesses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Business"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /businesses/{slug}:
+    get:
+      operationId: getBusiness
+      tags: [businesses]
+      summary: Get a public business profile
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Business profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessProfile"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /businesses/{id}:
+    patch:
+      operationId: updateBusiness
+      tags: [businesses]
+      summary: Update an owned business
+      parameters:
+        - $ref: "#/components/parameters/BusinessId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BusinessUpdate"
+      responses:
+        "200":
+          description: Updated business
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Business"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /businesses/{id}/join:
+    post:
+      operationId: joinBusiness
+      tags: [businesses]
+      summary: Join or follow a business community
+      parameters:
+        - $ref: "#/components/parameters/BusinessId"
+      responses:
+        "200":
+          description: Membership result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MembershipResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /businesses/{id}/members:
+    get:
+      operationId: listBusinessMembers
+      tags: [businesses]
+      summary: List members for an owned business
+      parameters:
+        - $ref: "#/components/parameters/BusinessId"
+      responses:
+        "200":
+          description: Members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Member"
+  /businesses/{id}/posts:
+    get:
+      operationId: listBusinessPosts
+      tags: [community]
+      summary: List community posts for a business
+      parameters:
+        - $ref: "#/components/parameters/BusinessId"
+      responses:
+        "200":
+          description: Community posts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostList"
+    post:
+      operationId: createPost
+      tags: [community]
+      summary: Publish a business community post
+      parameters:
+        - $ref: "#/components/parameters/BusinessId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostInput"
+      responses:
+        "201":
+          description: Created post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+  /posts/{id}:
+    patch:
+      operationId: updatePost
+      tags: [community]
+      summary: Edit an owned post
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostUpdate"
+      responses:
+        "200":
+          description: Updated post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+    delete:
+      operationId: deletePost
+      tags: [community]
+      summary: Delete an owned post
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      responses:
+        "204":
+          description: Deleted
+  /posts/{id}/like:
+    post:
+      operationId: reactToPost
+      tags: [community]
+      summary: Toggle a like on a post
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      responses:
+        "200":
+          description: Reaction result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReactionResult"
+  /posts/{id}/comments:
+    get:
+      operationId: listComments
+      tags: [community]
+      summary: List comments on a post
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      responses:
+        "200":
+          description: Comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Comment"
+    post:
+      operationId: createComment
+      tags: [community]
+      summary: Comment on a post
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommentInput"
+      responses:
+        "201":
+          description: Created comment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+  /dashboard/member:
+    get:
+      operationId: getMemberDashboard
+      tags: [dashboards]
+      summary: Get member activity dashboard
+      responses:
+        "200":
+          description: Member dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberDashboard"
+  /dashboard/business:
+    get:
+      operationId: getBusinessDashboard
+      tags: [dashboards]
+      summary: Get owner dashboard with real analytics
+      responses:
+        "200":
+          description: Business dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessDashboard"
+  /dashboard/admin:
+    get:
+      operationId: getAdminDashboard
+      tags: [dashboards]
+      summary: Get platform dashboard
+      responses:
+        "200":
+          description: Admin dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDashboard"
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: List current user notifications
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+  /notifications/{id}/read:
+    patch:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark a notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Updated notification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+  /admin/users:
+    get:
+      operationId: listAdminUsers
+      tags: [admin]
+      summary: List platform users
+      parameters:
+        - $ref: "#/components/parameters/Search"
+        - name: role
+          in: query
+          schema: { type: string, enum: [member, owner, admin] }
+        - name: status
+          in: query
+          schema: { type: string, enum: [active, suspended] }
+        - $ref: "#/components/parameters/Page"
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserList"
+  /admin/users/{id}/status:
+    patch:
+      operationId: updateUserStatus
+      tags: [admin]
+      summary: Suspend or reactivate a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatusInput"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSummary"
+  /admin/businesses:
+    get:
+      operationId: listAdminBusinesses
+      tags: [admin]
+      summary: List all businesses for moderation
+      parameters:
+        - $ref: "#/components/parameters/Search"
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, approved, rejected, suspended] }
+        - $ref: "#/components/parameters/Page"
+      responses:
+        "200":
+          description: Businesses
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessList"
+  /admin/businesses/{id}/status:
+    patch:
+      operationId: updateBusinessStatus
+      tags: [admin]
+      summary: Approve, reject, suspend, or reactivate a business
+      parameters:
+        - $ref: "#/components/parameters/BusinessId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BusinessStatusInput"
+      responses:
+        "200":
+          description: Updated business
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Business"
 components:
+  parameters:
+    BusinessId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    PostId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    Search:
+      name: search
+      in: query
+      schema: { type: string }
+    Category:
+      name: category
+      in: query
+      schema: { type: string }
+    District:
+      name: district
+      in: query
+      schema: { type: string }
+    Village:
+      name: village
+      in: query
+      schema: { type: string }
+    Sort:
+      name: sort
+      in: query
+      schema: { type: string, enum: [newest, members, active], default: newest }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: pageSize
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 50, default: 12 }
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Access denied
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
-        status:
-          type: string
-      required:
-        - status
-
+        status: { type: string }
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+        code: { type: ["string", "null"] }
+    UserSummary:
+      type: object
+      required: [id, name, email, role, status]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: string }
+        role: { type: string, enum: [member, owner, admin] }
+        avatarUrl: { type: ["string", "null"] }
+        status: { type: string, enum: [active, suspended] }
+        createdAt: { type: string }
+    CurrentUser:
+      allOf:
+        - $ref: "#/components/schemas/UserSummary"
+        - type: object
+          properties:
+            bio: { type: ["string", "null"] }
+            xpPoints: { type: integer }
+            loyaltyPoints: { type: integer }
+    RegisterInput:
+      type: object
+      required: [name, email, password, role]
+      properties:
+        name: { type: string, minLength: 2 }
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+        role: { type: string, enum: [member, owner] }
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 1 }
+    Category:
+      type: object
+      required: [id, name, slug, active, businessCount]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: ["string", "null"] }
+        active: { type: boolean }
+        businessCount: { type: integer }
+    Business:
+      type: object
+      required: [id, ownerId, name, slug, description, category, district, village, status, verificationStatus, premiumTier, memberCount, postCount, createdAt]
+      properties:
+        id: { type: string }
+        ownerId: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string }
+        category:
+          $ref: "#/components/schemas/Category"
+        district: { type: string }
+        village: { type: string }
+        address: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"], format: email }
+        website: { type: ["string", "null"], format: uri }
+        logoUrl: { type: ["string", "null"], format: uri }
+        coverImageUrl: { type: ["string", "null"], format: uri }
+        status: { type: string, enum: [pending, approved, rejected, suspended] }
+        verificationStatus: { type: string, enum: [unverified, verified] }
+        premiumTier: { type: string, enum: [free, plus, premium] }
+        memberCount: { type: integer }
+        postCount: { type: integer }
+        createdAt: { type: string }
+    BusinessProfile:
+      allOf:
+        - $ref: "#/components/schemas/Business"
+        - type: object
+          required: [openingHours, socialLinks, posts, isMember]
+          properties:
+            openingHours:
+              type: object
+              additionalProperties:
+                type: string
+            socialLinks:
+              type: object
+              additionalProperties:
+                type: string
+            posts:
+              type: array
+              items:
+                $ref: "#/components/schemas/Post"
+            isMember: { type: boolean }
+    BusinessInput:
+      type: object
+      required: [name, description, categoryId, district, village]
+      properties:
+        name: { type: string, minLength: 2 }
+        description: { type: string, minLength: 10 }
+        categoryId: { type: string }
+        district: { type: string }
+        village: { type: string }
+        address: { type: string }
+        phone: { type: string }
+        email: { type: string, format: email }
+        website: { type: string, format: uri }
+        logoUrl: { type: string, format: uri }
+        coverImageUrl: { type: string, format: uri }
+    BusinessUpdate:
+      allOf:
+        - $ref: "#/components/schemas/BusinessInput"
+    BusinessList:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Business"
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+    MembershipResult:
+      type: object
+      required: [joined, memberCount]
+      properties:
+        joined: { type: boolean }
+        memberCount: { type: integer }
+    Member:
+      type: object
+      required: [id, name, joinedAt]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        avatarUrl: { type: ["string", "null"] }
+        joinedAt: { type: string }
+    Post:
+      type: object
+      required: [id, businessId, businessName, businessLogoUrl, authorName, type, title, content, status, createdAt, likeCount, commentCount, likedByMe]
+      properties:
+        id: { type: string }
+        businessId: { type: string }
+        businessName: { type: string }
+        businessLogoUrl: { type: ["string", "null"] }
+        authorName: { type: string }
+        type: { type: string, enum: [announcement, deal, event] }
+        title: { type: string }
+        content: { type: string }
+        imageUrl: { type: ["string", "null"], format: uri }
+        status: { type: string, enum: [published, hidden, deleted] }
+        createdAt: { type: string }
+        likeCount: { type: integer }
+        commentCount: { type: integer }
+        likedByMe: { type: boolean }
+    PostInput:
+      type: object
+      required: [type, title, content]
+      properties:
+        type: { type: string, enum: [announcement, deal, event] }
+        title: { type: string, minLength: 2 }
+        content: { type: string, minLength: 2 }
+        imageUrl: { type: string, format: uri }
+    PostUpdate:
+      allOf:
+        - $ref: "#/components/schemas/PostInput"
+    PostList:
+      type: object
+      required: [items, page, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Post"
+        page: { type: integer }
+        total: { type: integer }
+    ReactionResult:
+      type: object
+      required: [liked, likeCount]
+      properties:
+        liked: { type: boolean }
+        likeCount: { type: integer }
+    Comment:
+      type: object
+      required: [id, postId, userName, content, createdAt]
+      properties:
+        id: { type: string }
+        postId: { type: string }
+        userName: { type: string }
+        avatarUrl: { type: ["string", "null"] }
+        content: { type: string }
+        createdAt: { type: string }
+    CommentInput:
+      type: object
+      required: [content]
+      properties:
+        content: { type: string, minLength: 1 }
+    Notification:
+      type: object
+      required: [id, type, title, message, read, createdAt]
+      properties:
+        id: { type: string }
+        type: { type: string }
+        title: { type: string }
+        message: { type: string }
+        read: { type: boolean }
+        createdAt: { type: string }
+        href: { type: ["string", "null"] }
+    MemberDashboard:
+      type: object
+      required: [joinedBusinesses, recentPosts, notifications, stats]
+      properties:
+        joinedBusinesses:
+          type: array
+          items:
+            $ref: "#/components/schemas/Business"
+        recentPosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Post"
+        notifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/Notification"
+        stats:
+          $ref: "#/components/schemas/MemberStats"
+    MemberStats:
+      type: object
+      required: [businessesJoined, postsLiked, commentsMade]
+      properties:
+        businessesJoined: { type: integer }
+        postsLiked: { type: integer }
+        commentsMade: { type: integer }
+    BusinessDashboard:
+      type: object
+      required: [business, stats, recentActivity, analytics]
+      properties:
+        business:
+          $ref: "#/components/schemas/Business"
+        stats:
+          $ref: "#/components/schemas/BusinessStats"
+        recentActivity:
+          type: array
+          items:
+            $ref: "#/components/schemas/Activity"
+        analytics:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnalyticsPoint"
+    BusinessStats:
+      type: object
+      required: [profileViews, members, engagement, publishedPosts]
+      properties:
+        profileViews: { type: integer }
+        members: { type: integer }
+        engagement: { type: integer }
+        publishedPosts: { type: integer }
+    Activity:
+      type: object
+      required: [id, label, description, createdAt]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        description: { type: string }
+        createdAt: { type: string }
+    AnalyticsPoint:
+      type: object
+      required: [date, views, joins, engagement]
+      properties:
+        date: { type: string }
+        views: { type: integer }
+        joins: { type: integer }
+        engagement: { type: integer }
+    AdminDashboard:
+      type: object
+      required: [stats, recentBusinesses, recentUsers, analytics]
+      properties:
+        stats:
+          $ref: "#/components/schemas/AdminStats"
+        recentBusinesses:
+          type: array
+          items:
+            $ref: "#/components/schemas/Business"
+        recentUsers:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserSummary"
+        analytics:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnalyticsPoint"
+    AdminStats:
+      type: object
+      required: [users, businesses, pendingBusinesses, activeBusinesses, posts, joins, profileViews]
+      properties:
+        users: { type: integer }
+        businesses: { type: integer }
+        pendingBusinesses: { type: integer }
+        activeBusinesses: { type: integer }
+        posts: { type: integer }
+        joins: { type: integer }
+        profileViews: { type: integer }
+    UserList:
+      type: object
+      required: [items, page, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserSummary"
+        page: { type: integer }
+        total: { type: integer }
+    StatusInput:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [active, suspended] }
+    BusinessStatusInput:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [pending, approved, rejected, suspended] }
